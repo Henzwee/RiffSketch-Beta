@@ -11,10 +11,26 @@
   <div class="container">
     <div id="trackList"></div>
     <div class="button-row">
-      <button class="button" onclick="addNewTrack()">+ Add New Track</button>
-      <button class="button" id="playAllBtn" onclick="togglePlayAllTracks()">▶ Play All Tracks</button>
-      <button class="button" id="toggleAudioBtn" onclick="toggleRecordingAudio()">🔇 monitor: Off</button>
-      <button class="button" onclick="exportMixdown()">⬇ Export as WAV</button>
+      <button class="button" onclick="addNewTrack()">
+        <img src="plus-104.png" width="20" height="20" style="margin-right:6px; vertical-align:middle;" alt="Add Icon">
+        Add Track
+      </button>
+      
+      <button class="button" id="playAllBtn" onclick="togglePlayAllTracks()">
+        <img src="play-icon.png" width="20" height="20" style="margin-right:6px; vertical-align:middle;" alt="Play Icon">
+        Play All Tracks
+      </button>
+      
+      <button class="button" id="toggleAudioBtn" onclick="togglePlayOnRecord()">
+        <img src="Mute_Icon.svg.png" width="20" height="20"
+             style="margin-right:6px;vertical-align:middle;" alt="Play on Record">
+        Mute on Record
+      </button>
+      
+      <button class="button" onclick="exportMixdown()">
+        <img src="243717.png" width="20" height="20" style="margin-right:6px; vertical-align:middle;" alt="Export Icon">
+        Export as WAV
+      </button>      
     </div>
   </div>
   <script src="script.js"></script>
