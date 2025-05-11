@@ -3,15 +3,15 @@ const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 let currentSources = {};
 let waveSurfers     = {};
 let trackCounter    = 0;
+let mediaStream     = null;
+let mediaRecorder   = null;
+let chunks          = [];
 let trackData       = {};       // { trackId: { url, blob } }
 let playAudioDuringRecording = false;
 
 let trackGainNodes = {};
 let trackMuteStates = {};
 let impulseBuffer   = null;
-
-let recorder        = null;
-let micSourceNode   = null;
 
 // --------------------- LOAD REVERB IMPULSE RESPONSE ---------------------
 fetch('impulse.wav')
@@ -20,19 +20,12 @@ fetch('impulse.wav')
   .then(buffer => { impulseBuffer = buffer; })
   .catch(() => { console.warn('Reverb impulse not loaded.'); });
 
-// --------------------- SETUP RECORDER.JS ---------------------
-async function setupRecorder() {
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  micSourceNode = audioCtx.createMediaStreamSource(stream);
-  recorder = new Recorder(micSourceNode);
-}
-
 // --------------------- AUDIO EFFECTS ---------------------
 function applyEffects(trackId, source, destination) {
-  const vol       = parseInt(document.querySelector(`#${trackId} .fx-volume`).value) / 100;
-  const dist      = parseInt(document.querySelector(`#${trackId} .fx-distortion`).value);
-  const chorusVal = parseInt(document.querySelector(`#${trackId} .fx-chorus`).value);
-  const reverbVal = parseInt(document.querySelector(`#${trackId} .fx-reverb`).value);
+  const vol       = parseInt(document.querySelector(#${trackId} .fx-volume).value) / 100;
+  const dist      = parseInt(document.querySelector(#${trackId} .fx-distortion).value);
+  const chorusVal = parseInt(document.querySelector(#${trackId} .fx-chorus).value);
+  const reverbVal = parseInt(document.querySelector(#${trackId} .fx-reverb).value);
   const muted     = trackMuteStates[trackId] || false;
 
   const gainNode = audioCtx.createGain();
@@ -86,96 +79,105 @@ function makeDistortionCurve(amount) {
 // --------------------- RECORDING ---------------------
 async function toggleRecord(btn, trackId) {
   await audioCtx.resume();
-  if (!recorder) await setupRecorder();
+  if (!mediaStream) await setupMediaStream();
+  if (!mediaStream) return;
 
-  if (!recorder.recording) {
-    // PLAY-ON-RECORD
-    if (playAudioDuringRecording) {
-      Object.entries(trackData).forEach(([id, data]) => {
-        if (!trackMuteStates[id]) {
-          fetch(data.url)
-            .then(r => r.arrayBuffer())
-            .then(ab => audioCtx.decodeAudioData(ab))
-            .then(decoded => {
-              const src = audioCtx.createBufferSource();
-              src.buffer = decoded;
-              applyEffects(id, src, audioCtx.destination);
-              src.start();
-              currentSources[id] = src;
-              waveSurfers[id]?.seekTo(0) && waveSurfers[id].play();
-              src.onended = () => delete currentSources[id];
-            });
-        }
+  if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+    // START RECORD
+    chunks = [];
+    mediaRecorder = new MediaRecorder(mediaStream);
+
+    // onstart: if play-on-record is enabled, playback existing tracks
+    mediaRecorder.onstart = () => {
+      if (playAudioDuringRecording) {
+        Object.entries(trackData).forEach(([id, data]) => {
+          if (!trackMuteStates[id]) {
+            fetch(data.url)
+              .then(r => r.arrayBuffer())
+              .then(ab => audioCtx.decodeAudioData(ab))
+              .then(decoded => {
+                const src = audioCtx.createBufferSource();
+                src.buffer = decoded;
+                applyEffects(id, src, audioCtx.destination);
+                src.start();
+                currentSources[id] = src;
+                waveSurfers[id]?.seekTo(0) && waveSurfers[id].play();
+                src.onended = () => delete currentSources[id];
+              });
+          }
+        });
+      }
+    };
+
+    mediaRecorder.ondataavailable = e => chunks.push(e.data);
+    mediaRecorder.onstop = () => {
+      // stop any play-on-record sources
+      Object.values(currentSources).forEach(s => s.stop());
+      currentSources = {};
+
+      const blob = new Blob(chunks, { type: 'audio/webm' });
+      const url  = URL.createObjectURL(blob);
+      trackData[trackId] = { url, blob };
+
+      // insert Play‑with‑FX button
+      const container = document.getElementById(audio-${trackId});
+      container.innerHTML = 
+        <button class="button"
+          onclick="togglePlayWithFX(this,'${url}','${trackId}')">
+          <img src="play-icon.png" width="20" height="20"
+               style="margin-right:6px;vertical-align:middle;" alt="Play">
+          Play with FX
+        </button>
+      ;
+
+      // draw waveform
+      const wf = document.getElementById(waveform-${trackId});
+      wf.innerHTML = '';
+      const ws = WaveSurfer.create({
+        container: wf,
+        waveColor: '#ff0',
+        progressColor: '#f0f',
+        barWidth: 2,
+        height: 80
       });
-    }
+      ws.load(url);
+      waveSurfers[trackId] = ws;
+    };
 
-    recorder.record();
-    btn.innerHTML = `
+    mediaRecorder.start();
+    btn.innerHTML = 
       <img src="stop_square_icon_206305.png" width="20" height="20"
            style="margin-right:6px;vertical-align:middle;" alt="Stop">
       Stop
-    `;
+    ;
   } else {
-    // STOP
-    const { blob } = await recorder.stop();
-    recorder.clear();
-
-    // stop any play-on-record sources
-    Object.values(currentSources).forEach(s => s.stop());
-    currentSources = {};
-
-    const url = URL.createObjectURL(blob);
-    trackData[trackId] = { url, blob };
-
-    // insert Play‑with‑FX button
-    const container = document.getElementById(`audio-${trackId}`);
-    container.innerHTML = `
-      <button class="button"
-        onclick="togglePlayWithFX(this,'${url}','${trackId}')">
-        <img src="play-icon.png" width="20" height="20"
-             style="margin-right:6px;vertical-align:middle;" alt="Play">
-        Play with FX
-      </button>
-    `;
-
-    // draw waveform
-    const wf = document.getElementById(`waveform-${trackId}`);
-    wf.innerHTML = '';
-    const ws = WaveSurfer.create({
-      container: wf,
-      waveColor: '#ff0',
-      progressColor: '#f0f',
-      barWidth: 2,
-      height: 80
-    });
-    ws.load(url);
-    waveSurfers[trackId] = ws;
-
-    btn.innerHTML = `
+    // STOP RECORD
+    mediaRecorder.stop();
+    btn.innerHTML = 
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="red"
            viewBox="0 0 16 16" style="margin-right:6px;">
         <circle cx="8" cy="8" r="5"/>
       </svg>
       Record
-    `;
+    ;
   }
 }
 
 // --------------------- PLAY WITH FX ---------------------
 async function togglePlayWithFX(btn, audioUrl, trackId) {
   await audioCtx.resume();
-  if (trackMuteStates[trackId]) return; // skip muted
+  if (trackMuteStates[trackId]) return; // do nothing if muted
 
   if (btn.textContent.includes('Stop')) {
     currentSources[trackId]?.stop();
     delete currentSources[trackId];
     waveSurfers[trackId]?.pause();
     waveSurfers[trackId]?.seekTo(0);
-    btn.innerHTML = `
+    btn.innerHTML = 
       <img src="play-icon.png" width="20" height="20"
            style="margin-right:6px;vertical-align:middle;" alt="Play">
       Play with FX
-    `;
+    ;
     return;
   }
 
@@ -188,34 +190,34 @@ async function togglePlayWithFX(btn, audioUrl, trackId) {
   currentSources[trackId] = src;
 
   waveSurfers[trackId]?.seekTo(0) && waveSurfers[trackId].play();
-  btn.innerHTML = `
+  btn.innerHTML = 
     <img src="stop_square_icon_206305.png" width="20" height="20"
          style="margin-right:6px;vertical-align:middle;" alt="Stop">
     Stop
-  `;
+  ;
   src.onended = () => {
     delete currentSources[trackId];
     waveSurfers[trackId]?.pause();
     waveSurfers[trackId]?.seekTo(0);
-    btn.innerHTML = `
+    btn.innerHTML = 
       <img src="play-icon.png" width="20" height="20"
            style="margin-right:6px;vertical-align:middle;" alt="Play">
       Play with FX
-    `;
+    ;
   };
 }
 
 // --------------------- UI & TRACK MANAGEMENT ---------------------
 function addNewTrack() {
   const list    = document.getElementById('trackList');
-  const trackId = `track-${trackCounter++}`;
+  const trackId = track-${trackCounter++};
   trackMuteStates[trackId] = false;
 
   const labelNum = list.children.length + 1;
   const div = document.createElement('div');
   div.id        = trackId;
   div.className = 'track';
-  div.innerHTML = `
+  div.innerHTML = 
     <div class="track-header" onclick="toggleExpand('${trackId}')">
       <span>Track ${labelNum}</span>
       <span class="expand-icon">▶</span>
@@ -257,19 +259,19 @@ function addNewTrack() {
         <div class="audio-controls audio-wrapper" id="audio-${trackId}"></div>
       </div>
     </div>
-  `;
+  ;
   list.appendChild(div);
 
-  // open editor by default
-  div.classList.add('expanded');
-  const bodyEl = div.querySelector('.track-body');
-  bodyEl.style.maxHeight = 'none';
-  div.querySelector('.expand-icon').style.transform = 'rotate(90deg)';
+   // **force it open by default** ↓
+   div.classList.add('expanded');
+   const bodyEl = div.querySelector('.track-body');
+   bodyEl.style.maxHeight = 'none';                   // let it grow to full height
+   div.querySelector('.expand-icon').style.transform = 'rotate(90deg)';
 
   // wire volume slider
   div.querySelector('.fx-volume').addEventListener('input', e => {
     const v = parseInt(e.target.value, 10) / 100;
-    trackGainNodes[trackId]?.gain.setValueAtTime(v, audioCtx.currentTime);
+    if (trackGainNodes[trackId]) trackGainNodes[trackId].gain.value = v;
     waveSurfers[trackId]?.setVolume(trackMuteStates[trackId] ? 0 : v);
   });
 }
@@ -285,7 +287,7 @@ function toggleExpand(id) {
 
   if (trackEl.classList.contains('expanded')) {
     bodyEl.style.maxHeight = bodyEl.scrollHeight + 'px';
-    bodyEl.offsetHeight;
+    bodyEl.offsetHeight;               // force reflow
     bodyEl.style.maxHeight = '0';
     icon.style.transform   = 'rotate(0deg)';
     bodyEl.addEventListener('transitionend', function onEnd(e) {
@@ -307,6 +309,14 @@ function toggleExpand(id) {
   }
 }
 
+async function setupMediaStream() {
+  try {
+    mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch {
+    alert('Mic access denied.');
+  }
+}
+
 // --------------------- MUTE TOGGLE ---------------------
 function toggleMute(btn, trackId) {
   const wasMuted = btn.getAttribute('data-muted') === 'true';
@@ -314,16 +324,32 @@ function toggleMute(btn, trackId) {
   trackMuteStates[trackId] = isMuted;
   btn.setAttribute('data-muted', isMuted);
 
-  btn.innerHTML = `
-    <img src="${isMuted ? 'Mute_Icon_red.png' : 'Speaker_Icon.svg.png'}"
+  // swap icon + text
+  btn.innerHTML = 
+    <img src="${isMuted ? 'Mute_Icon.svg.png' : 'Speaker_Icon.svg.png'}"
          width="20" height="20" style="margin-right:6px;vertical-align:middle;"
          alt="${isMuted ? 'Unmute' : 'Mute'}">
     ${isMuted ? 'Unmute' : 'Mute'}
-  `;
+  ;
 
-  const vol = parseInt(document.querySelector(`#${trackId} .fx-volume`).value, 10)/100;
+  // mute/unmute node & waveform
+  const vol = parseInt(document.querySelector(#${trackId} .fx-volume).value, 10)/100;
   if (trackGainNodes[trackId]) trackGainNodes[trackId].gain.value = isMuted ? 0 : vol;
   waveSurfers[trackId]?.setVolume(isMuted ? 0 : vol);
+
+  // overlay red PNG icon
+  const wf = document.getElementById(waveform-${trackId});
+  // remove any existing overlay
+  wf.querySelector('.mute-icon-container')?.remove();
+
+  if (isMuted) {
+    const overlay = document.createElement('img');
+    overlay.className = 'mute-icon-container';
+    overlay.src       = 'Mute_Icon_red.png';
+    overlay.width     = 20;
+    overlay.height    = 20;
+    wf.appendChild(overlay);
+  }
 }
 
 // --------------------- PLAY‑ON‑RECORD TOGGLE ---------------------
@@ -336,11 +362,11 @@ function updatePlayOnRecordButton() {
   const btn   = document.getElementById('toggleAudioBtn');
   const icon  = playAudioDuringRecording ? 'Speaker_Icon.svg.png' : 'Mute_Icon.svg.png';
   const label = playAudioDuringRecording ? 'Play on Record'    : 'Mute on Record';
-  btn.innerHTML = `
+  btn.innerHTML = 
     <img src="${icon}" width="20" height="20"
          style="margin-right:6px;vertical-align:middle;" alt="${label}">
     ${label}
-  `;
+  ;
 }
 
 // --------------------- PLAY ALL TOGGLE ---------------------
@@ -358,11 +384,11 @@ function togglePlayAllTracks() {
       waveSurfers[id]?.pause();
       waveSurfers[id]?.seekTo(0);
     });
-    playBtn.innerHTML = `
+    playBtn.innerHTML = 
       <img src="play-icon.png" width="20" height="20"
            style="margin-right:6px;vertical-align:middle;" alt="Play All">
       Play All Tracks
-    `;
+    ;
   } else {
     // PLAY ALL (skip muted)
     let longest = 0, buffers = {};
@@ -386,22 +412,22 @@ function togglePlayAllTracks() {
         src.onended = () => delete currentSources[id];
       });
 
-      playBtn.innerHTML = `
+      playBtn.innerHTML = 
         <img src="stop_square_icon_206305.png" width="20" height="20"
              style="margin-right:6px;vertical-align:middle;" alt="Stop All">
         Stop All
-      `;
+      ;
 
       setTimeout(() => {
         trackIds.forEach(id => {
           waveSurfers[id]?.pause();
           waveSurfers[id]?.seekTo(0);
         });
-        playBtn.innerHTML = `
+        playBtn.innerHTML = 
           <img src="play-icon.png" width="20" height="20"
                style="margin-right:6px;vertical-align:middle;" alt="Play All">
           Play All Tracks
-        `;
+        ;
       }, longest * 1000);
     });
   }
@@ -409,8 +435,8 @@ function togglePlayAllTracks() {
 
 // --------------------- INIT ---------------------
 window.onload = () => {
-  addNewTrack();                // start with first track open
-  updatePlayOnRecordButton();   // correct label on page load
+  addNewTrack();                // always start with Track 1 expanded
+  updatePlayOnRecordButton();   // set correct label
 };
 
 // --------------------- GLOBAL BINDINGS ---------------------
