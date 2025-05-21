@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RiffSketch</title>
+  <script src="https://unpkg.com/wavesurfer.js@5.2.0/dist/wavesurfer.min.js"></script>
+  <script src="https://unpkg.com/wavesurfer.js@5.2.0/dist/plugin/wavesurfer.cursor.min.js"></script>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+    <!-- MAIN EDITOR -->
+    <div class="container">
+      <div id="trackList"></div>
+    </div>
+    
+    <div class="bottom-controls">
+      <div class="monitor-container">
+        <span>Play on Record:</span>
+        <div class="toggle-switch">
+          <input type="checkbox" id="recordToggle" onchange="togglePlayOnRecord(this.checked)">
+          <label for="recordToggle"></label>
+        </div>
+      </div>
+      <div class="button-row">
+      <button class="icon-button" onclick="addNewTrack()" title="Add Track">
+        <img src="plus-104.png" alt="Add Track">
+      </button>
+    
+      <button id="playAllBtn" class="icon-button" onclick="togglePlayAllTracks()" title="Play All">
+        <img src="play-icon.png" alt="Play All">
+      </button>
+    
+      <button class="icon-button" onclick="exportMixdown()" title="Export">
+        <img src="243717.png" alt="Export">
+      </button>
+    </div>    
+  </div>  
+  <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,281 @@
+:root {
+  /* Palette */
+  --bg-default:      #0d1b2a;
+  --panel-bg:        #1b263b;
+  --panel-expanded:  #273a5a;
+  --text-default:    #a3d2f0;
+  --primary:         #ffc947;
+  --primary-dark:    #e6b347;
+  --secondary:       #152541;
+  --wave-color:      #5a8fb8;
+  --progress-color:  #5a8fb8;
+  --slider-track:    #3a506b;
+  --slider-thumb:    #ffc947;
+}
+
+/* Reset & base */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+html, body {
+  height: 100%;
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+  background: var(--bg-default);
+  color: var(--text-default);
+  font-family: sans-serif;
+}
+
+/* Ensure space for bottom bar */
+body {
+  padding-bottom: 120px;
+}
+.container {
+  padding: 16px;
+}
+
+/* Spacer to push content above fixed bottom bar */
+.container::after {
+  content: "";
+  display: block;
+  height: 120px;
+  background: var(--bg-default);
+}
+
+/* Track panels */
+.track {
+  background: var(--panel-bg);
+  border-radius: 16px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+.track.expanded {
+  background: var(--panel-expanded);
+}
+.track-header {
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+}
+.track-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.4s ease;
+}
+.track.expanded .track-body {
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+}
+.track-header .expand-icon {
+  transition: transform 0.3s;
+}
+.track.expanded .expand-icon {
+  transform: rotate(90deg);
+}
+
+/* Waveform & playhead */
+.waveform {
+  position: relative;
+  width: 100%;
+  height: 80px;
+  background: transparent;
+  margin-top: 10px;
+}
+.waveform canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--text-default);
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Controls & buttons */
+.button-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.button,
+.icon-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--primary);
+  border: none;
+  cursor: pointer;
+  transition: filter 0.2s;
+}
+.button {
+  flex: 1;
+  min-width: 100px;
+  max-width: 150px;
+  height: 40px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  color: var(--bg-default);
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.icon-button {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+}
+.icon-button img {
+  width: 60%;
+  height: 60%;
+  filter: none;
+}
+#playAllBtn img {
+  margin-left: 4px;
+}
+
+/* Sliders */
+.fx-group {
+  width: 100%;
+  margin-top: 12px;
+}
+.fx-label {
+  margin-bottom: 4px;
+  color: var(--text-default);
+  font-size: 0.9rem;
+}
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  background: var(--slider-track);
+  border-radius: 2px;
+  outline: none;
+  margin-bottom: 10px;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--slider-thumb);
+  margin-top: -5px;
+  cursor: pointer;
+  transition: none;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--slider-thumb);
+  cursor: pointer;
+  transition: none;
+}
+
+/* Bottom fixed bar */
+.bottom-controls {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 24px 16px 16px;
+  background: var(--panel-bg);
+  box-shadow: 0 -2px 8px rgba(0,0,0,0.25);
+  z-index: 1000;
+}
+.bottom-controls .monitor-container {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 16px;
+  color: var(--text-default);
+  font-size: 1rem;
+}
+.bottom-controls .monitor-container span {
+  margin-right: 8px;
+}
+.bottom-controls .button-row {
+  width: 100%;
+  display: flex;
+  justify-content: space-evenly;
+  gap: 60px;
+}
+
+/* Toggle switch */
+.toggle-switch {
+  position: relative;
+  width: 48px;
+  height: 24px;
+  background: var(--slider-track);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.toggle-switch input {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+}
+
+.toggle-switch label {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background: var(--primary);
+  border-radius: 50%;
+  transition: transform 0.2s, background 0.2s;
+}
+
+.toggle-switch input:checked + label {
+  transform: translateX(24px);
+  background: var(--primary-dark);
+}
+
+.toggle-switch.on {
+  background: #7d5a0c;
+}
+
+.button.play-with-fx {
+  margin-top: 16px;  /* push it down */
+}
+
+/* Mute icon overlay positioning */
+.mute-icon-container {
+  position: absolute;
+  top: 1px;
+  left: 12px; /* nudged right for consistent placement */
+  pointer-events: none;
+  z-index: 10;
+  width: 20px;
+  height: 20px;
+}
+
+@keyframes flash {
+  0%, 100% { opacity: .5; }
+  50%      { opacity: 0.2; }
+}
+
+/* flash the img inside any button that has .recording */
+.button.recording img {
+  animation: flash 1s infinite;
+}
