@@ -298,11 +298,11 @@ function addNewTrack() {
           </button>
           <button class="button" onclick="toggleMute(this,'${trackId}')" data-muted="false">
             <img src="Speaker_Icon.svg.png" width="20" height="20" alt="Mute">
-            Mute
+            &nbspMute
           </button>
           <button class="button" onclick="deleteTrack('${trackId}')">
             <img src="trash-icon.png" width="20" height="20" alt="Delete">
-            Delete
+            &nbspDelete
           </button>
         </div>
         <div class="fx-group"><label class="fx-label">Volume</label>
